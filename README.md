@@ -59,10 +59,10 @@ php artisan key:generate
 php artisan migrate --seed
 
 # 7. Jalankan
-php artisan serve
+php artisan serve --host=0.0.0.0 --port=8080
 ```
 
-Buka **http://localhost:8000** di browser.
+Buka **http://localhost:8000** di browser desktop/mobile di jaringan yang sama.
 
 ---
 
