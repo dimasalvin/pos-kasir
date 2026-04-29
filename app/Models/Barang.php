@@ -8,7 +8,6 @@ class Barang extends Model
 {
     protected $fillable = [
         'kode_barang',
-        'barcode',
         'nama_barang',
         'satuan',
         'kategori_id',

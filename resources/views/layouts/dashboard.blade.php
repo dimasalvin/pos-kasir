@@ -338,17 +338,15 @@ function initRupiahInputs() {
         hidden.value = input.value || 0;
         input.parentNode.insertBefore(hidden, input.nextSibling);
 
-        // Hapus name dari input display agar tidak dikirim ke server
+        // Hapus name & required dari input display agar tidak dikirim ke server
         input.removeAttribute('name');
+        input.removeAttribute('required');
         input.type = 'text';
         input.inputMode = 'numeric';
 
         // Format value awal
-        if (hidden.value && Number(hidden.value) > 0) {
-            input.value = formatRupiah(hidden.value);
-        } else {
-            input.value = '';
-        }
+        var initVal = Number(hidden.value) || 0;
+        input.value = initVal > 0 ? formatRupiah(initVal) : 'Rp 0';
 
         // Format saat mengetik
         input.addEventListener('input', function() {
@@ -371,13 +369,30 @@ function initRupiahInputs() {
         input.addEventListener('blur', function() {
             var raw = parseRupiah(this.value);
             hidden.value = raw;
-            this.value = raw > 0 ? formatRupiah(raw) : '';
+            this.value = raw > 0 ? formatRupiah(raw) : 'Rp 0';
         });
     });
 }
 
 // Auto-init saat DOM ready
 document.addEventListener('DOMContentLoaded', initRupiahInputs);
+
+/**
+ * Simpan & restore posisi scroll sidebar agar tidak reset saat pindah halaman
+ */
+(function() {
+    var nav = document.querySelector('.sidebar-nav');
+    if (!nav) return;
+
+    // Restore posisi scroll dari localStorage
+    var saved = localStorage.getItem('sidebar-scroll');
+    if (saved) nav.scrollTop = parseInt(saved, 10);
+
+    // Simpan posisi scroll setiap kali user scroll sidebar
+    nav.addEventListener('scroll', function() {
+        localStorage.setItem('sidebar-scroll', nav.scrollTop);
+    });
+})();
 </script>
 @stack('scripts')
 </body>

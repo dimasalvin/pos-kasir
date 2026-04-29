@@ -26,7 +26,7 @@ class ClosingKasirController extends Controller
         }
 
         $closings = $query->orderBy('tanggal', 'desc')
-            ->orderByRaw("FIELD(shift, 'pagi', 'malam')")
+            ->orderByRaw("FIELD(shift, 'pagi', 'siang')")
             ->get();
 
         // Hitung total footer
@@ -58,7 +58,7 @@ class ClosingKasirController extends Controller
     {
         $request->validate([
             'tanggal' => 'required|date',
-            'shift'   => 'required|in:pagi,malam',
+            'shift'   => 'required|in:pagi,siang',
         ]);
 
         // Cek sudah ada closing?
@@ -88,7 +88,7 @@ class ClosingKasirController extends Controller
     {
         $request->validate([
             'tanggal' => 'required|date',
-            'shift'   => 'required|in:pagi,malam',
+            'shift'   => 'required|in:pagi,siang',
         ]);
 
         // Cek duplikat
@@ -140,7 +140,7 @@ class ClosingKasirController extends Controller
         }
 
         $closings = $query->orderBy('tanggal')
-            ->orderByRaw("FIELD(shift, 'pagi', 'malam')")
+            ->orderByRaw("FIELD(shift, 'pagi', 'siang')")
             ->get();
 
         $totals = [

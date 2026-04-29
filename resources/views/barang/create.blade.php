@@ -12,18 +12,10 @@
         <form method="POST" action="{{ route('barang.store') }}">
             @csrf
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Kode Barang *</label>
-                    <input type="text" name="kode_barang" class="form-control" value="{{ old('kode_barang') }}" required>
-                    @error('kode_barang') <div class="form-error">{{ $message }}</div> @enderror
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Barcode *</label>
-                    <input type="text" name="barcode" class="form-control" value="{{ old('barcode') }}" required
-                           placeholder="Scan atau input manual">
-                    @error('barcode') <div class="form-error">{{ $message }}</div> @enderror
-                </div>
+            <div class="form-group">
+                <label class="form-label">Kode Barang *</label>
+                <input type="text" name="kode_barang" class="form-control" value="{{ old('kode_barang') }}" required>
+                @error('kode_barang') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
             <div class="form-group">
@@ -63,31 +55,33 @@
                 </select>
             </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Harga Beli *</label>
-                    <input type="text" name="harga_beli" class="form-control input-rupiah" value="{{ old('harga_beli', 0) }}" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Harga Jual Umum (Non Resep) *</label>
-                    <input type="text" name="harga_jual_umum" class="form-control input-rupiah" value="{{ old('harga_jual_umum', 0) }}" required>
-                </div>
+            <div class="form-group">
+                <label class="form-label">Harga Beli *</label>
+                <input type="text" name="harga_beli" id="hargaBeli" class="form-control input-rupiah" value="{{ old('harga_beli', 0) }}" required>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Harga Jual Resep *</label>
-                    <input type="text" name="harga_jual_resep" class="form-control input-rupiah" value="{{ old('harga_jual_resep', 0) }}" required>
+                    <label class="form-label">Harga Jual Non Resep * <small style="color:var(--muted);">(default +10%)</small></label>
+                    <input type="text" name="harga_jual_umum" id="hargaJualUmum" class="form-control input-rupiah" value="{{ old('harga_jual_umum', 0) }}" required>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Harga Jual Resep * <small style="color:var(--muted);">(default +30%)</small></label>
+                    <input type="text" name="harga_jual_resep" id="hargaJualResep" class="form-control input-rupiah" value="{{ old('harga_jual_resep', 0) }}" required>
+                </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Stok Awal *</label>
-                    <input type="number" name="stok" class="form-control" value="{{ old('stok', 0) }}" min="0" required>
+                    <input type="number" name="stok" class="form-control" value="{{ old('stok') }}" min="0" required placeholder="0"
+                           onfocus="this.select()">
                 </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Stok Minimum *</label>
-                <input type="number" name="stok_minimum" class="form-control" value="{{ old('stok_minimum', 5) }}" min="0" required>
+                <div class="form-group">
+                    <label class="form-label">Stok Minimum *</label>
+                    <input type="number" name="stok_minimum" class="form-control" value="{{ old('stok_minimum', 5) }}" min="0" required
+                           onfocus="this.select()">
+                </div>
             </div>
 
             <div style="display:flex; gap:10px; margin-top:24px;">
@@ -98,3 +92,44 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Setelah initRupiahInputs selesai, pasang listener pada input harga_beli
+    setTimeout(function() {
+        const hargaBeliDisplay = document.getElementById('hargaBeli');
+        if (hargaBeliDisplay) {
+            hargaBeliDisplay.addEventListener('input', function() {
+                // Baca dari hidden input yang sudah diupdate oleh initRupiahInputs
+                setTimeout(suggestHargaJual, 10);
+            });
+        }
+        // Suggest awal jika harga jual masih 0
+        const umumHidden = document.querySelector('input[type="hidden"][name="harga_jual_umum"]');
+        if (umumHidden && parseFloat(umumHidden.value) === 0) {
+            suggestHargaJual();
+        }
+    }, 100);
+});
+
+function suggestHargaJual() {
+    const hargaBeliHidden = document.querySelector('input[type="hidden"][name="harga_beli"]');
+    const hargaBeli = hargaBeliHidden ? parseFloat(hargaBeliHidden.value) || 0 : 0;
+    const umum = Math.ceil(hargaBeli + (hargaBeli * 10 / 100));
+    const resep = Math.ceil(hargaBeli + (hargaBeli * 30 / 100));
+
+    // Update hidden inputs
+    const umumHidden = document.querySelector('input[type="hidden"][name="harga_jual_umum"]');
+    const resepHidden = document.querySelector('input[type="hidden"][name="harga_jual_resep"]');
+    if (umumHidden) umumHidden.value = umum;
+    if (resepHidden) resepHidden.value = resep;
+
+    // Update display inputs (yang sudah diproses initRupiahInputs, jadi id-nya tetap)
+    const umumDisplay = document.getElementById('hargaJualUmum');
+    const resepDisplay = document.getElementById('hargaJualResep');
+    if (umumDisplay) umumDisplay.value = umum > 0 ? formatRupiah(umum) : 'Rp 0';
+    if (resepDisplay) resepDisplay.value = resep > 0 ? formatRupiah(resep) : 'Rp 0';
+}
+</script>
+@endpush

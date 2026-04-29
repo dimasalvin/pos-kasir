@@ -36,7 +36,7 @@ class PembelianController extends Controller
     public function create()
     {
         $suppliers = Supplier::orderBy('nama')->get();
-        $barangs = Barang::orderBy('nama_barang')->get();
+        $barangs = Barang::orderBy('nama_barang')->get(['id', 'kode_barang', 'nama_barang', 'satuan', 'harga_beli']);
         $noFaktur = Pembelian::generateNoFaktur();
 
         return view('pembelian.create', compact('suppliers', 'barangs', 'noFaktur'));
@@ -45,14 +45,15 @@ class PembelianController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'supplier_id'          => 'required|exists:suppliers,id',
-            'tanggal'              => 'required|date',
-            'keterangan'           => 'nullable|string',
-            'items'                => 'required|array|min:1',
-            'items.*.barang_id'    => 'required|exists:barangs,id',
-            'items.*.qty'          => 'required|numeric|min:1',
-            'items.*.harga_beli'   => 'required|numeric|min:0',
-            'items.*.diskon'       => 'nullable|numeric|min:0',
+            'supplier_id'              => 'required|exists:suppliers,id',
+            'tanggal'                  => 'required|date',
+            'keterangan'               => 'nullable|string',
+            'items'                    => 'required|array|min:1',
+            'items.*.barang_id'        => 'required|exists:barangs,id',
+            'items.*.qty'              => 'required|numeric|min:1',
+            'items.*.harga_beli'       => 'required|numeric|min:0',
+            'items.*.diskon_tipe'      => 'nullable|in:rupiah,persen',
+            'items.*.diskon'           => 'nullable|numeric|min:0',
         ], [
             'supplier_id.required'        => 'Supplier harus dipilih.',
             'items.*.barang_id.required'  => 'Barang harus dipilih pada setiap baris.',
@@ -68,11 +69,24 @@ class PembelianController extends Controller
             $total = 0;
 
             foreach ($items as &$item) {
-                $diskon = $item['diskon'] ?? 0;
-                $subtotal = ($item['harga_beli'] * $item['qty']) - $diskon;
+                $diskonTipe = $item['diskon_tipe'] ?? 'rupiah';
+                $diskonValue = $item['diskon'] ?? 0;
+                $hargaTotal = $item['harga_beli'] * $item['qty'];
+
+                // Hitung diskon per item
+                if ($diskonTipe === 'persen') {
+                    $diskonRupiah = ($hargaTotal * $diskonValue) / 100;
+                } else {
+                    $diskonRupiah = $diskonValue;
+                }
+
+                $subtotal = $hargaTotal - $diskonRupiah;
+                $item['diskon_tipe'] = $diskonTipe;
+                $item['diskon_rupiah'] = $diskonRupiah;
                 $item['subtotal'] = $subtotal;
                 $total += $subtotal;
             }
+            unset($item);
 
             $pembelian = Pembelian::create([
                 'no_faktur'   => Pembelian::generateNoFaktur(),
@@ -85,22 +99,27 @@ class PembelianController extends Controller
                 'user_id'     => auth()->id(),
             ]);
 
+            // Pre-fetch semua barang yang dibutuhkan (1 query)
+            $barangIds = collect($items)->pluck('barang_id');
+            $barangs = Barang::whereIn('id', $barangIds)->get()->keyBy('id');
+
             foreach ($items as $item) {
                 PembelianDetail::create([
                     'pembelian_id' => $pembelian->id,
                     'barang_id'    => $item['barang_id'],
                     'qty'          => $item['qty'],
                     'harga_beli'   => $item['harga_beli'],
+                    'diskon_tipe'  => $item['diskon_tipe'],
                     'diskon'       => $item['diskon'] ?? 0,
                     'subtotal'     => $item['subtotal'],
                 ]);
 
-                // Tambah stok barang
-                $barang = Barang::find($item['barang_id']);
-                $barang->increment('stok', $item['qty']);
-
-                // Update harga beli barang
-                $barang->update(['harga_beli' => $item['harga_beli']]);
+                // Tambah stok & update harga beli (1 query per item, bukan 2)
+                $barang = $barangs[$item['barang_id']];
+                $barang->update([
+                    'stok'       => DB::raw("stok + {$item['qty']}"),
+                    'harga_beli' => $item['harga_beli'],
+                ]);
             }
 
             DB::commit();
@@ -127,6 +146,9 @@ class PembelianController extends Controller
         DB::beginTransaction();
 
         try {
+            // Eager load details + barang (1+1 query, bukan N+1)
+            $pembelian->load('details.barang');
+
             // Kembalikan stok
             foreach ($pembelian->details as $detail) {
                 $detail->barang->decrement('stok', $detail->qty);

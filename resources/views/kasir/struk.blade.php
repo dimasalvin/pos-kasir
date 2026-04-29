@@ -55,6 +55,11 @@
                 <div><span>Pelanggan</span><span>{{ $transaksi->pelanggan }}</span></div>
                 @endif
                 <div><span>Tipe</span><span>{{ $transaksi->tipe_harga === 'resep' ? 'Resep' : 'Non Resep' }}</span></div>
+                @if($transaksi->tipe_harga === 'resep' && $transaksi->pasien_nama)
+                <div style="border-top:1px dashed #ccc; margin-top:4px; padding-top:4px;"><span><strong>Pasien:</strong></span><span>{{ $transaksi->pasien_nama }}</span></div>
+                <div><span>Telp</span><span>{{ $transaksi->pasien_telp }}</span></div>
+                <div><span>Alamat</span><span>{{ $transaksi->pasien_alamat }}</span></div>
+                @endif
             </div>
 
             <div class="struk-items">

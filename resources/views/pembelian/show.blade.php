@@ -49,7 +49,13 @@
                     <td><strong>{{ $d->barang->nama_barang }}</strong></td>
                     <td>{{ $d->qty }}</td>
                     <td>Rp {{ number_format($d->harga_beli, 0, ',', '.') }}</td>
-                    <td>Rp {{ number_format($d->diskon, 0, ',', '.') }}</td>
+                    <td>
+                        @if($d->diskon > 0)
+                            {{ $d->diskon_tipe === 'persen' ? number_format($d->diskon, 0) . '%' : 'Rp ' . number_format($d->diskon, 0, ',', '.') }}
+                        @else
+                            -
+                        @endif
+                    </td>
                     <td style="font-weight:700;">Rp {{ number_format($d->subtotal, 0, ',', '.') }}</td>
                 </tr>
                 @endforeach

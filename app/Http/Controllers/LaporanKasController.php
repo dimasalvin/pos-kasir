@@ -23,9 +23,12 @@ class LaporanKasController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        // Hitung ringkasan
-        $totalKredit = LaporanKas::whereBetween('tanggal', [$dari, $sampai])->sum('kredit');
-        $totalDebit = LaporanKas::whereBetween('tanggal', [$dari, $sampai])->sum('debit');
+        // Hitung ringkasan — single aggregate query
+        $totals = LaporanKas::whereBetween('tanggal', [$dari, $sampai])
+            ->selectRaw('COALESCE(SUM(kredit), 0) as total_kredit, COALESCE(SUM(debit), 0) as total_debit')
+            ->first();
+        $totalKredit = $totals->total_kredit;
+        $totalDebit = $totals->total_debit;
         $saldoAwal = SaldoKas::getSaldo();
 
         // Saldo akhir = saldo awal + debit - kredit

@@ -23,7 +23,7 @@ class KasirController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $rules = [
             'tipe_harga'   => 'required|in:umum,resep',
             'pelanggan'    => 'nullable|string|max:255',
             'metode_bayar' => 'required|in:cash,non-cash',
@@ -33,6 +33,19 @@ class KasirController extends Controller
             'items.*.qty'       => 'required|integer|min:1',
             'items.*.harga'     => 'required|numeric|min:0',
             'items.*.diskon'    => 'nullable|numeric|min:0',
+        ];
+
+        // Jika tipe resep, data pasien wajib diisi
+        if ($request->tipe_harga === 'resep') {
+            $rules['pasien_nama']   = 'required|string|max:255';
+            $rules['pasien_telp']   = 'required|string|max:20';
+            $rules['pasien_alamat'] = 'required|string|max:500';
+        }
+
+        $request->validate($rules, [
+            'pasien_nama.required'   => 'Nama pasien wajib diisi untuk resep.',
+            'pasien_telp.required'   => 'No. telepon pasien wajib diisi untuk resep.',
+            'pasien_alamat.required' => 'Alamat pasien wajib diisi untuk resep.',
         ]);
 
         DB::beginTransaction();
@@ -48,6 +61,7 @@ class KasirController extends Controller
                 $item['subtotal'] = $subtotal;
                 $total += $subtotal;
             }
+            unset($item);
 
             $grandTotal = $total;
             $bayar = $request->bayar;
@@ -62,22 +76,33 @@ class KasirController extends Controller
 
             // Buat transaksi
             $transaksi = Transaksi::create([
-                'no_nota'      => Transaksi::generateNoNota(),
-                'tanggal'      => now()->toDateString(),
-                'pelanggan'    => $request->pelanggan,
-                'tipe_harga'   => $request->tipe_harga,
-                'total'        => $total,
-                'diskon'       => 0,
-                'grand_total'  => $grandTotal,
-                'bayar'        => $bayar,
-                'kembalian'    => max(0, $kembalian),
-                'metode_bayar' => $request->metode_bayar,
-                'user_id'      => auth()->id(),
+                'no_nota'       => Transaksi::generateNoNota(),
+                'tanggal'       => now()->toDateString(),
+                'pelanggan'     => $request->pelanggan,
+                'pasien_nama'   => $request->tipe_harga === 'resep' ? $request->pasien_nama : null,
+                'pasien_telp'   => $request->tipe_harga === 'resep' ? $request->pasien_telp : null,
+                'pasien_alamat' => $request->tipe_harga === 'resep' ? $request->pasien_alamat : null,
+                'tipe_harga'    => $request->tipe_harga,
+                'total'         => $total,
+                'diskon'        => 0,
+                'grand_total'   => $grandTotal,
+                'bayar'         => $bayar,
+                'kembalian'     => max(0, $kembalian),
+                'metode_bayar'  => $request->metode_bayar,
+                'user_id'       => auth()->id(),
             ]);
+
+            // Pre-fetch semua barang yang dibutuhkan (1 query)
+            $barangIds = collect($items)->pluck('barang_id');
+            $barangs = Barang::whereIn('id', $barangIds)->get()->keyBy('id');
 
             // Simpan detail & kurangi stok
             foreach ($items as $item) {
-                $barang = Barang::findOrFail($item['barang_id']);
+                $barang = $barangs[$item['barang_id']] ?? null;
+                if (!$barang) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'message' => 'Barang tidak ditemukan.'], 422);
+                }
 
                 // Cek stok cukup
                 if ($barang->stok < $item['qty']) {
@@ -141,5 +166,34 @@ class KasirController extends Controller
         $pdf->setPaper([0, 0, 226.77, 600], 'portrait'); // 80mm width
 
         return $pdf->download("struk-{$transaksi->no_nota}.pdf");
+    }
+
+    /**
+     * API: Cari data pasien dari transaksi sebelumnya
+     */
+    public function searchPasien(Request $request)
+    {
+        $keyword = $request->q;
+
+        if (!$keyword || strlen($keyword) < 2) {
+            return response()->json([]);
+        }
+
+        $pasiens = Transaksi::whereNotNull('pasien_nama')
+            ->where(function ($query) use ($keyword) {
+                $query->where('pasien_nama', 'like', "%{$keyword}%")
+                      ->orWhere('pasien_telp', 'like', "%{$keyword}%");
+            })
+            ->select('pasien_nama', 'pasien_telp', 'pasien_alamat')
+            ->distinct()
+            ->orderBy('pasien_nama')
+            ->limit(10)
+            ->get()
+            ->unique(function ($item) {
+                return strtolower($item->pasien_nama) . '|' . $item->pasien_telp;
+            })
+            ->values();
+
+        return response()->json($pasiens);
     }
 }

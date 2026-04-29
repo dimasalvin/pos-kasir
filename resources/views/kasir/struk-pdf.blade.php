@@ -33,6 +33,11 @@
         @if($transaksi->pelanggan)
         <div><span>Pelanggan</span><span>{{ $transaksi->pelanggan }}</span></div>
         @endif
+        @if($transaksi->tipe_harga === 'resep' && $transaksi->pasien_nama)
+        <div><span>Pasien</span><span>{{ $transaksi->pasien_nama }}</span></div>
+        <div><span>Telp</span><span>{{ $transaksi->pasien_telp }}</span></div>
+        <div><span>Alamat</span><span>{{ $transaksi->pasien_alamat }}</span></div>
+        @endif
     </div>
 
     <div class="items">

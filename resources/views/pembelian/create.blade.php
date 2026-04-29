@@ -4,8 +4,12 @@
 
 @push('styles')
 <style>
-.item-row { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr auto; gap:10px; align-items:end; margin-bottom:10px; }
+.item-row { display:grid; grid-template-columns:2fr 1fr 1fr 1.2fr 1fr auto; gap:10px; align-items:end; margin-bottom:10px; }
 @media(max-width:768px) { .item-row { grid-template-columns:1fr; } }
+.diskon-group { display:flex; gap:4px; align-items:end; }
+.diskon-group select { width:70px; padding:8px 4px; font-size:12px; border:1px solid var(--border); border-radius:6px; }
+.diskon-group input { flex:1; }
+
 </style>
 @endpush
 
@@ -85,7 +89,13 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Diskon</label>
-                        <input type="text" name="items[0][diskon]" class="form-control input-rupiah" value="0">
+                        <div class="diskon-group">
+                            <select name="items[0][diskon_tipe]" class="form-control diskon-tipe-select">
+                                <option value="rupiah">Rp</option>
+                                <option value="persen">%</option>
+                            </select>
+                            <input type="number" name="items[0][diskon]" class="form-control diskon-input" value="0" min="0" step="any">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Subtotal</label>
@@ -134,7 +144,13 @@ function addItemRow() {
                 <input type="text" name="items[${itemIndex}][harga_beli]" class="form-control input-rupiah" value="0" required>
             </div>
             <div class="form-group">
-                <input type="text" name="items[${itemIndex}][diskon]" class="form-control input-rupiah" value="0">
+                <div class="diskon-group">
+                    <select name="items[${itemIndex}][diskon_tipe]" class="form-control diskon-tipe-select">
+                        <option value="rupiah">Rp</option>
+                        <option value="persen">%</option>
+                    </select>
+                    <input type="number" name="items[${itemIndex}][diskon]" class="form-control diskon-input" value="0" min="0" step="any">
+                </div>
             </div>
             <div class="form-group">
                 <input type="text" class="form-control subtotal-display" disabled value="Rp 0">
@@ -163,28 +179,53 @@ document.getElementById('itemsContainer').addEventListener('input', function(e) 
     calcTotal();
 });
 
-function calcRowSubtotal(row) {
+document.getElementById('itemsContainer').addEventListener('change', function(e) {
+    if (e.target.matches('select[name*="diskon_tipe"]')) {
+        const row = e.target.closest('.item-row');
+        if (!row) return;
+        calcRowSubtotal(row);
+        calcTotal();
+    }
+});
+
+
+
+function getRowValues(row) {
     const qty = parseInt(row.querySelector('[name*="qty"]')?.value) || 0;
-    // Hidden inputs created by input-rupiah have the name, get their value
-    const hargaEl = row.querySelector('input[type="hidden"][name*="harga_beli"]');
-    const diskonEl = row.querySelector('input[type="hidden"][name*="diskon"]');
-    const harga = hargaEl ? parseFloat(hargaEl.value) || 0 : 0;
-    const diskon = diskonEl ? parseFloat(diskonEl.value) || 0 : 0;
-    const subtotal = (qty * harga) - diskon;
-    row.querySelector('.subtotal-display').value = formatRupiah(subtotal);
+    // Harga beli: ambil dari hidden input (dibuat oleh input-rupiah)
+    const hargaHidden = row.querySelector('input[type="hidden"][name*="harga_beli"]');
+    const harga = hargaHidden ? parseFloat(hargaHidden.value) || 0 : 0;
+    const hargaTotal = qty * harga;
+
+    // Diskon: langsung dari input number
+    const diskonTipeEl = row.querySelector('.diskon-tipe-select');
+    const diskonTipe = diskonTipeEl ? diskonTipeEl.value : 'rupiah';
+    const diskonInput = row.querySelector('.diskon-input');
+    const diskonValue = diskonInput ? parseFloat(diskonInput.value) || 0 : 0;
+
+    let diskonRupiah = 0;
+    if (diskonTipe === 'persen') {
+        diskonRupiah = (hargaTotal * diskonValue) / 100;
+    } else {
+        diskonRupiah = diskonValue;
+    }
+
+    return { qty, harga, hargaTotal, diskonTipe, diskonValue, diskonRupiah };
+}
+
+function calcRowSubtotal(row) {
+    const v = getRowValues(row);
+    const subtotal = v.hargaTotal - v.diskonRupiah;
+    row.querySelector('.subtotal-display').value = formatRupiah(Math.max(0, subtotal));
 }
 
 function calcTotal() {
     let total = 0;
     document.querySelectorAll('.item-row').forEach(row => {
-        const qty = parseInt(row.querySelector('[name*="qty"]')?.value) || 0;
-        const hargaEl = row.querySelector('input[type="hidden"][name*="harga_beli"]');
-        const diskonEl = row.querySelector('input[type="hidden"][name*="diskon"]');
-        const harga = hargaEl ? parseFloat(hargaEl.value) || 0 : 0;
-        const diskon = diskonEl ? parseFloat(diskonEl.value) || 0 : 0;
-        total += (qty * harga) - diskon;
+        const v = getRowValues(row);
+        total += v.hargaTotal - v.diskonRupiah;
     });
-    document.getElementById('grandTotal').textContent = formatRupiah(total);
+    document.getElementById('grandTotal').textContent = formatRupiah(Math.max(0, total));
 }
 </script>
 @endpush

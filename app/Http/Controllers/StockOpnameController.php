@@ -29,7 +29,7 @@ class StockOpnameController extends Controller
 
     public function create()
     {
-        $barangs = Barang::orderBy('nama_barang')->get();
+        $barangs = Barang::orderBy('nama_barang')->get(['id', 'kode_barang', 'nama_barang', 'stok']);
 
         return view('stock-opname.create', compact('barangs'));
     }
@@ -49,8 +49,12 @@ class StockOpnameController extends Controller
             'items.*.stok_fisik.min'      => 'Stok fisik tidak boleh kurang dari 0.',
         ]);
 
+        // Pre-fetch semua barang yang dibutuhkan (1 query)
+        $barangIds = collect($request->items)->pluck('barang_id');
+        $barangs = Barang::whereIn('id', $barangIds)->get()->keyBy('id');
+
         foreach ($request->items as $item) {
-            $barang = Barang::findOrFail($item['barang_id']);
+            $barang = $barangs[$item['barang_id']];
             $selisih = $item['stok_fisik'] - $barang->stok;
 
             StockOpname::create([

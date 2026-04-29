@@ -66,6 +66,19 @@
 
 .btn-bayar { width:100%; padding:14px; font-size:16px; margin-top:12px; }
 
+/* Pasien Autocomplete */
+.pasien-search-wrap { position:relative; }
+.pasien-results { position:absolute; top:100%; left:0; right:0; background:var(--surface);
+                  border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,.12);
+                  max-height:200px; overflow-y:auto; z-index:120; display:none; }
+.pasien-results.show { display:block; }
+.pasien-item { padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border);
+               font-size:13px; transition:background .1s; }
+.pasien-item:hover { background:var(--teal-light); }
+.pasien-item:last-child { border-bottom:none; }
+.pasien-item .pasien-name { font-weight:700; }
+.pasien-item .pasien-info { font-size:11px; color:var(--muted); margin-top:2px; }
+
 /* Struk Modal */
 .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200;
                  align-items:center; justify-content:center; }
@@ -79,13 +92,13 @@
 <div class="kasir-wrap">
     {{-- Left: Product Search --}}
     <div>
-        {{-- Barcode Scanner Input --}}
-        <div class="card mb-20">
-            <div class="card-body">
+        {{-- Pencarian Barang --}}
+        <div class="card mb-20" style="overflow:visible; position:relative; z-index:10;">
+            <div class="card-body" style="overflow:visible;">
                 <div style="position:relative;">
                     <div class="scan-bar">
                         <input type="text" id="barcodeInput" class="form-control"
-                               placeholder="🔍 Scan barcode atau ketik nama barang..." autofocus>
+                               placeholder="🔍 Ketik kode atau nama barang..." autofocus>
                     </div>
                     <div class="search-results" id="searchResults"></div>
                 </div>
@@ -105,7 +118,7 @@
             <div class="card-body">
                 <div id="cartItems" style="min-height:100px;">
                     <div id="cartEmpty" style="text-align:center; color:var(--muted); padding:40px;">
-                        Keranjang kosong. Scan barcode untuk menambah barang.
+                        Keranjang kosong. Cari barang untuk menambahkan ke keranjang.
                     </div>
                 </div>
             </div>
@@ -114,25 +127,38 @@
 
     {{-- Right: Payment Panel --}}
     <div>
-        {{-- Tipe Harga Toggle --}}
-        <div class="card mb-20">
-            <div class="card-body">
-                <label class="form-label">Tipe Harga</label>
-                <div class="harga-toggle">
+        {{-- Tipe Harga + Pelanggan/Pasien --}}
+        <div class="card mb-20" style="overflow:visible; position:relative; z-index:10;">
+            <div class="card-body" style="padding:16px; overflow:visible;">
+                <div class="harga-toggle" style="margin-bottom:12px;">
                     <button id="btnUmum" class="active" onclick="setTipeHarga('umum')">💊 Non Resep</button>
                     <button id="btnResep" onclick="setTipeHarga('resep')">📋 Resep</button>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Pelanggan (Opsional)</label>
-                    <input type="text" id="pelanggan" class="form-control" placeholder="Nama pelanggan...">
+                {{-- Non Resep: Pelanggan opsional --}}
+                <div id="pelangganSection">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <input type="text" id="pelanggan" class="form-control" placeholder="Nama pelanggan (opsional)" style="padding:8px 12px; font-size:13px;">
+                    </div>
+                </div>
+
+                {{-- Resep: Data Pasien wajib --}}
+                <div id="pasienSection" style="display:none;">
+                    <div class="form-group pasien-search-wrap" style="margin-bottom:8px;">
+                        <input type="text" id="pasienNama" class="form-control" placeholder="🔍 Nama pasien *" autocomplete="off" style="padding:8px 12px; font-size:13px;">
+                        <div class="pasien-results" id="pasienResults"></div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:0;">
+                        <input type="text" id="pasienTelp" class="form-control" placeholder="📞 No. Telp *" style="padding:8px 12px; font-size:13px;">
+                        <input type="text" id="pasienAlamat" class="form-control" placeholder="📍 Alamat *" style="padding:8px 12px; font-size:13px;">
+                    </div>
                 </div>
             </div>
         </div>
 
-        {{-- Summary --}}
-        <div class="card mb-20">
-            <div class="card-body">
+        {{-- Summary + Payment (digabung 1 card) --}}
+        <div class="card">
+            <div class="card-body" style="padding:16px;">
                 <div class="cart-summary" style="border-top:none; padding-top:0; margin-top:0;">
                     <div class="summary-row">
                         <span>Subtotal</span>
@@ -147,32 +173,27 @@
                         <span id="totalDisplay">Rp 0</span>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        {{-- Payment --}}
-        <div class="card">
-            <div class="card-body">
-                <label class="form-label">Metode Pembayaran</label>
-                <div class="metode-toggle">
-                    <button id="btnCash" class="active" onclick="setMetode('cash')">💵 Cash</button>
-                    <button id="btnNonCash" onclick="setMetode('non-cash')">💳 Non-Cash</button>
+                <div style="border-top:1px solid var(--border); padding-top:14px; margin-top:14px;">
+                    <div class="metode-toggle" style="margin-bottom:10px;">
+                        <button id="btnCash" class="active" onclick="setMetode('cash')">💵 Cash</button>
+                        <button id="btnNonCash" onclick="setMetode('non-cash')">💳 Non-Cash</button>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <input type="text" id="bayarInput" class="form-control" placeholder="Rp 0"
+                               oninput="formatBayarInput(); hitungKembalian()" style="font-size:18px; font-weight:800; text-align:right; padding:10px 14px;">
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:800; margin-bottom:12px;">
+                        <span>Kembalian</span>
+                        <span id="kembalianDisplay" style="color:var(--teal);">Rp 0</span>
+                    </div>
+
+                    <button onclick="prosesBayar()" class="btn btn-primary btn-bayar">
+                        💰 Bayar Sekarang
+                    </button>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">Bayar</label>
-                    <input type="text" id="bayarInput" class="form-control" placeholder="Rp 0"
-                           oninput="formatBayarInput(); hitungKembalian()" style="font-size:18px; font-weight:800; text-align:right;">
-                </div>
-
-                <div class="summary-row" style="display:flex; justify-content:space-between; font-size:16px; font-weight:800;">
-                    <span>Kembalian</span>
-                    <span id="kembalianDisplay" style="color:var(--teal);">Rp 0</span>
-                </div>
-
-                <button onclick="prosesBayar()" class="btn btn-primary btn-bayar">
-                    💰 Bayar Sekarang
-                </button>
             </div>
         </div>
     </div>
@@ -204,21 +225,23 @@ barcodeInput.addEventListener('keydown', function(e) {
         const val = this.value.trim();
         if (!val) return;
 
-        // Try barcode first
-        fetch(`{{ route('api.barang.barcode') }}?barcode=${encodeURIComponent(val)}`)
+        // Cari barang berdasarkan kode/nama, ambil exact match kode_barang jika ada
+        fetch(`{{ route('api.barang.search') }}?q=${encodeURIComponent(val)}`)
             .then(r => r.json())
-            .then(data => {
-                if (data.found) {
-                    addToCart(data.barang);
+            .then(items => {
+                if (items.length > 0) {
+                    const exact = items.find(b => b.kode_barang.toLowerCase() === val.toLowerCase());
+                    const barang = exact || items[0];
+                    addToCart(barang);
                     barcodeInput.value = '';
                     searchResults.classList.remove('show');
-                    showNotif('success', `✓ ${data.barang.nama_barang} ditambahkan`);
+                    showNotif('success', `✓ ${barang.nama_barang} ditambahkan`);
                 } else {
-                    showNotif('danger', '⚠️ Barang tidak ditemukan dengan barcode tersebut');
+                    showNotif('danger', '⚠️ Barang tidak ditemukan');
                 }
             })
             .catch(() => {
-                showNotif('danger', '⚠️ Barang tidak ditemukan');
+                showNotif('danger', '⚠️ Gagal mencari barang');
             });
     }
 });
@@ -241,7 +264,7 @@ barcodeInput.addEventListener('input', function() {
                     searchResults.innerHTML = items.map(b => `
                         <div class="search-item" onclick='addToCartFromSearch(${JSON.stringify(b)})'>
                             <div class="name">${b.nama_barang}</div>
-                            <div class="info">${b.kode_barang} | ${b.barcode} | Stok: ${b.stok} | ${formatRupiah(tipeHarga === 'resep' ? b.harga_jual_resep : b.harga_jual_umum)}</div>
+                            <div class="info">${b.kode_barang} | Stok: ${b.stok} | ${formatRupiah(tipeHarga === 'resep' ? b.harga_jual_resep : b.harga_jual_umum)}</div>
                         </div>
                     `).join('');
                 }
@@ -270,16 +293,18 @@ function addToCart(barang) {
         existing.qty++;
         existing.subtotal = (existing.harga * existing.qty) - existing.diskon;
     } else {
-        const harga = tipeHarga === 'resep' ? barang.harga_jual_resep : barang.harga_jual_umum;
+        const hargaUmum = Number(barang.harga_jual_umum) || 0;
+        const hargaResep = Number(barang.harga_jual_resep) || 0;
+        const harga = tipeHarga === 'resep' ? hargaResep : hargaUmum;
         cart.push({
             barang_id: barang.id,
             nama_barang: barang.nama_barang,
             harga: harga,
-            harga_umum: barang.harga_jual_umum,
-            harga_resep: barang.harga_jual_resep,
+            harga_umum: hargaUmum,
+            harga_resep: hargaResep,
             qty: 1,
             diskon: 0,
-            stok: barang.stok,
+            stok: Number(barang.stok) || 0,
             subtotal: harga,
         });
     }
@@ -326,7 +351,7 @@ function renderCart() {
     const empty = document.getElementById('cartEmpty');
 
     if (cart.length === 0) {
-        container.innerHTML = '<div id="cartEmpty" style="text-align:center; color:var(--muted); padding:40px;">Keranjang kosong. Scan barcode untuk menambah barang.</div>';
+        container.innerHTML = '<div id="cartEmpty" style="text-align:center; color:var(--muted); padding:40px;">Keranjang kosong. Cari barang untuk menambahkan ke keranjang.</div>';
     } else {
         container.innerHTML = cart.map((item, i) => `
             <div class="cart-item">
@@ -370,6 +395,10 @@ function setTipeHarga(tipe) {
     document.getElementById('btnUmum').classList.toggle('active', tipe === 'umum');
     document.getElementById('btnResep').classList.toggle('active', tipe === 'resep');
 
+    // Toggle section pelanggan / data pasien
+    document.getElementById('pelangganSection').style.display = tipe === 'umum' ? 'block' : 'none';
+    document.getElementById('pasienSection').style.display = tipe === 'resep' ? 'block' : 'none';
+
     // Update harga di cart
     cart.forEach(item => {
         item.harga = tipe === 'resep' ? item.harga_resep : item.harga_umum;
@@ -389,18 +418,21 @@ function setMetode(metode) {
 // ── Format Bayar Input ──
 function formatBayarInput() {
     const input = document.getElementById('bayarInput');
-    const raw = parseRupiah(input.value);
-    const pos = input.selectionStart;
-    const oldLen = input.value.length;
+    // Ambil hanya digit dari input
+    const raw = parseInt(String(input.value).replace(/[^0-9]/g, ''), 10) || 0;
+    // Simpan posisi cursor dari kanan
+    const posFromEnd = input.value.length - input.selectionStart;
     input.value = raw > 0 ? formatRupiah(raw) : '';
-    const newLen = input.value.length;
-    input.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen));
+    // Restore cursor dari kanan
+    const newPos = Math.max(0, input.value.length - posFromEnd);
+    input.setSelectionRange(newPos, newPos);
 }
 
 // ── Kembalian ──
 function hitungKembalian() {
-    const total = cart.reduce((sum, i) => sum + i.subtotal, 0);
-    const bayar = parseRupiah(document.getElementById('bayarInput').value);
+    const total = cart.reduce((sum, i) => sum + (Number(i.subtotal) || 0), 0);
+    const bayarStr = document.getElementById('bayarInput').value;
+    const bayar = parseInt(String(bayarStr).replace(/[^0-9]/g, ''), 10) || 0;
     const kembalian = bayar - total;
 
     const el = document.getElementById('kembalianDisplay');
@@ -415,12 +447,35 @@ function prosesBayar() {
         return;
     }
 
-    const total = cart.reduce((sum, i) => sum + i.subtotal, 0);
-    const bayar = parseRupiah(document.getElementById('bayarInput').value);
+    const total = cart.reduce((sum, i) => sum + (Number(i.subtotal) || 0), 0);
+    const bayar = parseInt(String(document.getElementById('bayarInput').value).replace(/[^0-9]/g, ''), 10) || 0;
 
     if (metodeBayar === 'cash' && bayar < total) {
-        showNotif('danger', '⚠️ Pembayaran kurang!');
+        showNotif('danger', `⚠️ Pembayaran kurang! Total: ${formatRupiah(total)}, Bayar: ${formatRupiah(bayar)}`);
         return;
+    }
+
+    // Validasi data pasien jika resep
+    if (tipeHarga === 'resep') {
+        const nama = document.getElementById('pasienNama').value.trim();
+        const telp = document.getElementById('pasienTelp').value.trim();
+        const alamat = document.getElementById('pasienAlamat').value.trim();
+
+        if (!nama) {
+            showNotif('danger', '⚠️ Nama pasien wajib diisi untuk resep!');
+            document.getElementById('pasienNama').focus();
+            return;
+        }
+        if (!telp) {
+            showNotif('danger', '⚠️ No. telepon pasien wajib diisi untuk resep!');
+            document.getElementById('pasienTelp').focus();
+            return;
+        }
+        if (!alamat) {
+            showNotif('danger', '⚠️ Alamat pasien wajib diisi untuk resep!');
+            document.getElementById('pasienAlamat').focus();
+            return;
+        }
     }
 
     // Non-cash: bayar = total
@@ -428,7 +483,10 @@ function prosesBayar() {
 
     const payload = {
         tipe_harga: tipeHarga,
-        pelanggan: document.getElementById('pelanggan').value || null,
+        pelanggan: tipeHarga === 'umum' ? (document.getElementById('pelanggan').value || null) : null,
+        pasien_nama: tipeHarga === 'resep' ? document.getElementById('pasienNama').value.trim() : null,
+        pasien_telp: tipeHarga === 'resep' ? document.getElementById('pasienTelp').value.trim() : null,
+        pasien_alamat: tipeHarga === 'resep' ? document.getElementById('pasienAlamat').value.trim() : null,
         metode_bayar: metodeBayar,
         bayar: finalBayar,
         items: cart.map(i => ({
@@ -456,6 +514,9 @@ function prosesBayar() {
             renderCart();
             document.getElementById('bayarInput').value = '';
             document.getElementById('pelanggan').value = '';
+            document.getElementById('pasienNama').value = '';
+            document.getElementById('pasienTelp').value = '';
+            document.getElementById('pasienAlamat').value = '';
             showNotif('success', '✓ ' + data.message);
         } else {
             showNotif('danger', '⚠️ ' + data.message);
@@ -500,6 +561,51 @@ function showNotif(type, msg) {
     el.style.display = 'block';
     setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
+
+// ── Pasien Autocomplete ──
+let pasienTimeout = null;
+const pasienNamaInput = document.getElementById('pasienNama');
+const pasienResults = document.getElementById('pasienResults');
+
+pasienNamaInput.addEventListener('input', function() {
+    clearTimeout(pasienTimeout);
+    const val = this.value.trim();
+    if (val.length < 2) {
+        pasienResults.classList.remove('show');
+        return;
+    }
+
+    pasienTimeout = setTimeout(() => {
+        fetch(`{{ route('api.pasien.search') }}?q=${encodeURIComponent(val)}`)
+            .then(r => r.json())
+            .then(items => {
+                if (items.length === 0) {
+                    pasienResults.classList.remove('show');
+                } else {
+                    pasienResults.innerHTML = items.map(p => `
+                        <div class="pasien-item" onclick='selectPasien(${JSON.stringify(p)})'>
+                            <div class="pasien-name">${p.pasien_nama}</div>
+                            <div class="pasien-info">📞 ${p.pasien_telp || '-'} | 📍 ${(p.pasien_alamat || '-').substring(0, 50)}</div>
+                        </div>
+                    `).join('');
+                    pasienResults.classList.add('show');
+                }
+            });
+    }, 300);
+});
+
+function selectPasien(pasien) {
+    document.getElementById('pasienNama').value = pasien.pasien_nama || '';
+    document.getElementById('pasienTelp').value = pasien.pasien_telp || '';
+    document.getElementById('pasienAlamat').value = pasien.pasien_alamat || '';
+    pasienResults.classList.remove('show');
+}
+
+document.addEventListener('click', function(e) {
+    if (!pasienResults.contains(e.target) && e.target !== pasienNamaInput) {
+        pasienResults.classList.remove('show');
+    }
+});
 
 // Focus barcode on load
 barcodeInput.focus();

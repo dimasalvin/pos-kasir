@@ -11,6 +11,7 @@ class Pembelian extends Model
         'tanggal',
         'supplier_id',
         'total',
+        'diskon_tipe',
         'diskon',
         'grand_total',
         'keterangan',

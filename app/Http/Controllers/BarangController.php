@@ -17,8 +17,7 @@ class BarangController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nama_barang', 'like', "%{$search}%")
-                  ->orWhere('kode_barang', 'like', "%{$search}%")
-                  ->orWhere('barcode', 'like', "%{$search}%");
+                  ->orWhere('kode_barang', 'like', "%{$search}%");
             });
         }
 
@@ -49,7 +48,6 @@ class BarangController extends Controller
     {
         $validated = $request->validate([
             'kode_barang'     => 'required|string|max:50|unique:barangs',
-            'barcode'         => 'required|string|max:100|unique:barangs',
             'nama_barang'     => 'required|string|max:255',
             'satuan'          => 'required|string|max:50',
             'kategori_id'     => 'required|exists:kategoris,id',
@@ -57,9 +55,22 @@ class BarangController extends Controller
             'harga_beli'      => 'required|numeric|min:0',
             'harga_jual_umum' => 'required|numeric|min:0',
             'harga_jual_resep'=> 'required|numeric|min:0',
-            'stok'            => 'required|integer|min:0',
-            'stok_minimum'    => 'required|integer|min:0',
+            'stok'            => 'required|numeric|min:0',
+            'stok_minimum'    => 'required|numeric|min:0',
         ]);
+
+        // Cast stok ke integer
+        $validated['stok'] = (int) $validated['stok'];
+        $validated['stok_minimum'] = (int) $validated['stok_minimum'];
+
+        // Fallback: jika harga jual 0, auto-hitung dari harga beli
+        $hargaBeli = $validated['harga_beli'];
+        if ($validated['harga_jual_umum'] <= 0) {
+            $validated['harga_jual_umum'] = ceil($hargaBeli + ($hargaBeli * 10 / 100));
+        }
+        if ($validated['harga_jual_resep'] <= 0) {
+            $validated['harga_jual_resep'] = ceil($hargaBeli + ($hargaBeli * 30 / 100));
+        }
 
         Barang::create($validated);
 
@@ -79,7 +90,6 @@ class BarangController extends Controller
     {
         $validated = $request->validate([
             'kode_barang'     => 'required|string|max:50|unique:barangs,kode_barang,' . $barang->id,
-            'barcode'         => 'required|string|max:100|unique:barangs,barcode,' . $barang->id,
             'nama_barang'     => 'required|string|max:255',
             'satuan'          => 'required|string|max:50',
             'kategori_id'     => 'required|exists:kategoris,id',
@@ -87,9 +97,22 @@ class BarangController extends Controller
             'harga_beli'      => 'required|numeric|min:0',
             'harga_jual_umum' => 'required|numeric|min:0',
             'harga_jual_resep'=> 'required|numeric|min:0',
-            'stok'            => 'required|integer|min:0',
-            'stok_minimum'    => 'required|integer|min:0',
+            'stok'            => 'required|numeric|min:0',
+            'stok_minimum'    => 'required|numeric|min:0',
         ]);
+
+        // Cast stok ke integer
+        $validated['stok'] = (int) $validated['stok'];
+        $validated['stok_minimum'] = (int) $validated['stok_minimum'];
+
+        // Fallback: jika harga jual 0, auto-hitung dari harga beli
+        $hargaBeli = $validated['harga_beli'];
+        if ($validated['harga_jual_umum'] <= 0) {
+            $validated['harga_jual_umum'] = ceil($hargaBeli + ($hargaBeli * 10 / 100));
+        }
+        if ($validated['harga_jual_resep'] <= 0) {
+            $validated['harga_jual_resep'] = ceil($hargaBeli + ($hargaBeli * 30 / 100));
+        }
 
         $barang->update($validated);
 
@@ -111,32 +134,6 @@ class BarangController extends Controller
     }
 
     /**
-     * API: Cari barang berdasarkan barcode (untuk kasir)
-     */
-    public function findByBarcode(Request $request)
-    {
-        $barang = Barang::where('barcode', $request->barcode)->first();
-
-        if (!$barang) {
-            return response()->json(['found' => false, 'message' => 'Barang tidak ditemukan.'], 404);
-        }
-
-        return response()->json([
-            'found' => true,
-            'barang' => [
-                'id'              => $barang->id,
-                'kode_barang'     => $barang->kode_barang,
-                'barcode'         => $barang->barcode,
-                'nama_barang'     => $barang->nama_barang,
-                'satuan'          => $barang->satuan,
-                'harga_jual_umum' => (float) $barang->harga_jual_umum,
-                'harga_jual_resep'=> (float) $barang->harga_jual_resep,
-                'stok'            => $barang->stok,
-            ],
-        ]);
-    }
-
-    /**
      * API: Cari barang berdasarkan keyword (untuk kasir)
      */
     public function search(Request $request)
@@ -145,9 +142,8 @@ class BarangController extends Controller
 
         $barangs = Barang::where('nama_barang', 'like', "%{$keyword}%")
             ->orWhere('kode_barang', 'like', "%{$keyword}%")
-            ->orWhere('barcode', 'like', "%{$keyword}%")
             ->limit(10)
-            ->get(['id', 'kode_barang', 'barcode', 'nama_barang', 'satuan', 'harga_jual_umum', 'harga_jual_resep', 'stok']);
+            ->get(['id', 'kode_barang', 'nama_barang', 'satuan', 'harga_jual_umum', 'harga_jual_resep', 'stok']);
 
         return response()->json($barangs);
     }

@@ -39,8 +39,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/kasir/struk-pdf/{transaksi}', [KasirController::class, 'strukPdf'])->name('kasir.struk-pdf');
 
     // ── API Barang (untuk kasir) ──
-    Route::get('/api/barang/barcode', [BarangController::class, 'findByBarcode'])->name('api.barang.barcode');
     Route::get('/api/barang/search', [BarangController::class, 'search'])->name('api.barang.search');
+
+    // ── API Pasien (autocomplete untuk kasir resep) ──
+    Route::get('/api/pasien/search', [KasirController::class, 'searchPasien'])->name('api.pasien.search');
 
     // ── Admin Only Routes ──
     Route::middleware('role:admin')->group(function () {

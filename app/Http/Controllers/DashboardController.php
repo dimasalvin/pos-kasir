@@ -15,12 +15,21 @@ class DashboardController extends Controller
     {
         $today = now()->toDateString();
 
-        // Statistik utama
+        // Statistik utama — combined queries
+        $barangStats = Barang::selectRaw('
+            COUNT(*) as total_barang,
+            SUM(CASE WHEN stok < stok_minimum THEN 1 ELSE 0 END) as stok_rendah
+        ')->first();
+
+        $transaksiStats = Transaksi::whereDate('tanggal', $today)
+            ->selectRaw('COUNT(*) as jumlah, COALESCE(SUM(grand_total), 0) as pendapatan')
+            ->first();
+
         $stats = [
-            'total_barang'      => Barang::count(),
-            'stok_rendah'       => Barang::stokRendah()->count(),
-            'transaksi_hari_ini' => Transaksi::whereDate('tanggal', $today)->count(),
-            'pendapatan_hari_ini' => Transaksi::whereDate('tanggal', $today)->sum('grand_total'),
+            'total_barang'        => $barangStats->total_barang ?? 0,
+            'stok_rendah'         => $barangStats->stok_rendah ?? 0,
+            'transaksi_hari_ini'  => $transaksiStats->jumlah ?? 0,
+            'pendapatan_hari_ini' => $transaksiStats->pendapatan ?? 0,
         ];
 
         // Penjualan 7 hari terakhir

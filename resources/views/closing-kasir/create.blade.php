@@ -24,8 +24,8 @@
             <div class="form-group">
                 <label class="form-label">Shift</label>
                 <select id="shiftInput" class="form-control">
-                    <option value="pagi">Pagi (00:00 - 14:59)</option>
-                    <option value="malam">Malam (15:00 - 23:59)</option>
+                    <option value="pagi">Pagi (07:00 - 13:59)</option>
+                    <option value="siang">Siang (14:00 - 21:00)</option>
                 </select>
             </div>
         </div>

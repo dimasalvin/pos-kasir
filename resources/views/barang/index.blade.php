@@ -8,7 +8,7 @@
     <div class="form-group">
         <label class="form-label">Cari</label>
         <input type="text" name="search" class="form-control" value="{{ request('search') }}"
-               placeholder="Nama / kode / barcode...">
+               placeholder="Nama / kode barang...">
     </div>
     <div class="form-group">
         <label class="form-label">Kategori</label>
@@ -49,7 +49,6 @@
                 <tr>
                     <th>#</th>
                     <th>Kode</th>
-                    <th>Barcode</th>
                     <th>Nama Barang</th>
                     <th>Kategori</th>
                     <th>Satuan</th>
@@ -65,7 +64,6 @@
                 <tr>
                     <td style="color:var(--muted); font-size:12px;">{{ $loop->iteration + ($barangs->currentPage()-1) * $barangs->perPage() }}</td>
                     <td><strong>{{ $b->kode_barang }}</strong></td>
-                    <td style="font-size:12px; color:var(--muted);">{{ $b->barcode }}</td>
                     <td><strong>{{ $b->nama_barang }}</strong></td>
                     <td>
                         <span class="badge" style="background:{{ $b->kategori->warna ?? '#E2E8F0' }}20; color:{{ $b->kategori->warna ?? '#7A90A8' }};">
@@ -94,7 +92,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="11" style="text-align:center; color:var(--muted); padding:40px;">
+                    <td colspan="10" style="text-align:center; color:var(--muted); padding:40px;">
                         Belum ada data barang
                     </td>
                 </tr>

@@ -6,7 +6,7 @@
 <style>
 .shift-badge { padding:4px 12px; border-radius:20px; font-size:11px; font-weight:800; text-transform:uppercase; }
 .shift-pagi { background:#FFF9E6; color:#996B00; }
-.shift-malam { background:#F0EEFF; color:#7C6BE8; }
+.shift-siang { background:#F0EEFF; color:#7C6BE8; }
 </style>
 @endpush
 
@@ -26,7 +26,7 @@
         <select name="shift_filter" class="form-control">
             <option value="">Semua Shift</option>
             <option value="pagi" {{ $shiftFilter === 'pagi' ? 'selected' : '' }}>Pagi</option>
-            <option value="malam" {{ $shiftFilter === 'malam' ? 'selected' : '' }}>Malam</option>
+            <option value="siang" {{ $shiftFilter === 'siang' ? 'selected' : '' }}>Siang</option>
         </select>
     </div>
     <div class="form-group">
@@ -69,7 +69,7 @@
                 @forelse($closings as $c)
                 <tr>
                     <td>
-                        <span class="shift-badge {{ $c->shift === 'pagi' ? 'shift-pagi' : 'shift-malam' }}">
+                        <span class="shift-badge {{ $c->shift === 'pagi' ? 'shift-pagi' : 'shift-siang' }}">
                             {{ ucfirst($c->shift) }}
                         </span>
                     </td>
