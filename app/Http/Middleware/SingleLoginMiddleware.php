@@ -20,8 +20,8 @@ class SingleLoginMiddleware
             $sessionToken = session('login_token');
 
             // Jika token di session tidak cocok dengan token di database,
-            // berarti ada login baru di perangkat lain
-            if ($user->login_token && $sessionToken !== $user->login_token) {
+            // berarti ada login baru di perangkat lain, atau user telah logout
+            if ($sessionToken !== $user->login_token) {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();

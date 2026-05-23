@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Pembelian extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'no_faktur',
         'tanggal',
@@ -44,12 +47,13 @@ class Pembelian extends Model
     }
 
     /**
-     * Generate nomor faktur otomatis
+     * Generate nomor faktur otomatis (harus dipanggil dalam DB::transaction)
      */
     public static function generateNoFaktur(): string
     {
         $prefix = 'PB-' . date('Ymd');
         $last = static::where('no_faktur', 'like', $prefix . '%')
+            ->lockForUpdate()
             ->orderBy('no_faktur', 'desc')
             ->first();
 

@@ -26,8 +26,9 @@ class LaporanController extends Controller
         $this->applyShiftFilter($baseQuery, $shift);
         $this->applyMetodeFilter($baseQuery, $metode);
         if ($namaBarang) {
-            $baseQuery->whereHas('details', function ($q) use ($namaBarang) {
-                $q->where('nama_barang', 'like', "%{$namaBarang}%");
+            $escapedNama = str_replace(['%', '_'], ['\%', '\_'], $namaBarang);
+            $baseQuery->whereHas('details', function ($q) use ($escapedNama) {
+                $q->where('nama_barang', 'like', "%{$escapedNama}%");
             });
         }
 
@@ -49,10 +50,11 @@ class LaporanController extends Controller
         // Riwayat penjualan per obat (jika filter nama barang aktif)
         $riwayatObat = null;
         if ($namaBarang) {
+            $escapedNama = str_replace(['%', '_'], ['\%', '\_'], $namaBarang);
             $riwayatQuery = DB::table('transaksi_details')
                 ->join('transaksis', 'transaksis.id', '=', 'transaksi_details.transaksi_id')
                 ->whereBetween('transaksis.tanggal', [$dari, $sampai])
-                ->where('transaksi_details.nama_barang', 'like', "%{$namaBarang}%");
+                ->where('transaksi_details.nama_barang', 'like', "%{$escapedNama}%");
 
             $this->applyShiftFilterRaw($riwayatQuery, $shift);
             $this->applyMetodeFilterRaw($riwayatQuery, $metode);
@@ -141,8 +143,8 @@ class LaporanController extends Controller
 
         $barangs = $query->orderBy('nama_barang')->paginate(30)->withQueryString();
 
-        // Ringkasan stok — single aggregate query
-        $ringkasanRaw = Barang::selectRaw('
+        // Ringkasan stok — ikut terfilter berdasarkan kategori & filter stok rendah
+        $ringkasanRaw = (clone $query)->reorder()->selectRaw('
             COUNT(*) as total_item,
             SUM(CASE WHEN stok < stok_minimum THEN 1 ELSE 0 END) as stok_rendah,
             SUM(stok * harga_beli) as total_nilai

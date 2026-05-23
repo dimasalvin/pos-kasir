@@ -86,9 +86,20 @@ class ClosingKasirController extends Controller
      */
     public function store(Request $request)
     {
+        // Parse rupiah format ke angka sebelum validasi
+        $request->merge([
+            'modal_awal' => $this->parseRupiah($request->modal_awal),
+            'uang_fisik' => $request->uang_fisik ? $this->parseRupiah($request->uang_fisik) : null,
+            'setoran'    => $this->parseRupiah($request->setoran),
+        ]);
+
         $request->validate([
-            'tanggal' => 'required|date',
-            'shift'   => 'required|in:pagi,siang',
+            'tanggal'    => 'required|date',
+            'shift'      => 'required|in:pagi,siang',
+            'modal_awal' => 'nullable|numeric|min:0',
+            'uang_fisik' => 'nullable|numeric|min:0',
+            'setoran'    => 'nullable|numeric|min:0',
+            'keterangan' => 'nullable|string|max:500',
         ]);
 
         // Cek duplikat
@@ -102,14 +113,33 @@ class ClosingKasirController extends Controller
 
         $data = ClosingKasir::hitungDariTransaksi($request->tanggal, $request->shift);
 
+        $modalAwal = $request->modal_awal ?? 0;
+        $setoran = $request->setoran ?? 0;
+        $uangFisik = $request->uang_fisik;
+
+        // Seharusnya = Kas Awal + Pendapatan Tunai - Setoran ke Pemilik
+        $seharusnya = $modalAwal + $data['total'] - $setoran;
+        $selisih = $uangFisik !== null ? ($uangFisik - $seharusnya) : null;
+
         ClosingKasir::create(array_merge($data, [
-            'tanggal' => $request->tanggal,
-            'shift'   => $request->shift,
-            'user_id' => auth()->id(),
+            'tanggal'    => $request->tanggal,
+            'shift'      => $request->shift,
+            'modal_awal' => $modalAwal,
+            'uang_fisik' => $uangFisik,
+            'setoran'    => $setoran,
+            'selisih'    => $selisih,
+            'keterangan' => $request->keterangan,
+            'user_id'    => auth()->id(),
         ]));
 
+        $msg = "Closing shift {$request->shift} berhasil disimpan.";
+        if ($selisih !== null && $selisih != 0) {
+            $label = $selisih > 0 ? 'lebih' : 'kurang';
+            $msg .= " ⚠️ Selisih kas: Rp " . number_format(abs($selisih), 0, ',', '.') . " ({$label})";
+        }
+
         return redirect()->route('closing-kasir.index')
-            ->with('success', "Closing shift {$request->shift} berhasil disimpan.");
+            ->with($selisih !== null && $selisih < 0 ? 'warning' : 'success', $msg);
     }
 
     /**
@@ -154,5 +184,15 @@ class ClosingKasirController extends Controller
         ];
 
         return view('closing-kasir.cetak', compact('closings', 'totals', 'dari', 'sampai', 'shiftFilter'));
+    }
+
+    /**
+     * Parse format rupiah "Rp 175,000" atau "Rp 175.000" ke integer
+     */
+    private function parseRupiah($value): float
+    {
+        if ($value === null || $value === '') return 0;
+        // Hapus semua karakter non-digit
+        return (float) preg_replace('/[^\d]/', '', $value);
     }
 }

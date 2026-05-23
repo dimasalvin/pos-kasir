@@ -14,7 +14,7 @@ class BarangController extends Controller
         $query = Barang::with(['kategori', 'supplier']);
 
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = str_replace(['%', '_'], ['\%', '\_'], $request->search);
             $query->where(function ($q) use ($search) {
                 $q->where('nama_barang', 'like', "%{$search}%")
                   ->orWhere('kode_barang', 'like', "%{$search}%");
@@ -140,9 +140,16 @@ class BarangController extends Controller
     {
         $keyword = $request->q;
 
-        $barangs = Barang::where('nama_barang', 'like', "%{$keyword}%")
-            ->orWhere('kode_barang', 'like', "%{$keyword}%")
-            ->limit(10)
+        if (!$keyword || strlen($keyword) < 2) {
+            return response()->json([]);
+        }
+
+        // Escape wildcard characters untuk mencegah abuse LIKE query
+        $escaped = str_replace(['%', '_'], ['\%', '\_'], $keyword);
+
+        $barangs = Barang::where('nama_barang', 'like', "%{$escaped}%")
+            ->orWhere('kode_barang', 'like', "%{$escaped}%")
+            ->limit(15)
             ->get(['id', 'kode_barang', 'nama_barang', 'satuan', 'harga_jual_umum', 'harga_jual_resep', 'stok']);
 
         return response()->json($barangs);

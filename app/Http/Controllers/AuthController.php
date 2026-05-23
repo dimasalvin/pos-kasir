@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -33,8 +34,19 @@ class AuthController extends Controller
             $user->update(['login_token' => $token]);
             session(['login_token' => $token]);
 
+            Log::info('Login berhasil', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'ip'      => $request->ip(),
+            ]);
+
             return redirect()->intended(route('dashboard'));
         }
+
+        Log::warning('Login gagal', [
+            'email' => $request->email,
+            'ip'    => $request->ip(),
+        ]);
 
         return back()->withErrors([
             'email' => 'Email atau password salah.',
@@ -43,8 +55,11 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        // Hapus login token
         if (Auth::check()) {
+            Log::info('Logout', [
+                'user_id' => Auth::id(),
+                'email'   => Auth::user()->email,
+            ]);
             Auth::user()->update(['login_token' => null]);
         }
 

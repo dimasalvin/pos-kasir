@@ -16,6 +16,11 @@ class ClosingKasir extends Model
         'total_pendapatan',
         'non_tunai',
         'total',
+        'modal_awal',
+        'uang_fisik',
+        'setoran',
+        'selisih',
+        'keterangan',
         'user_id',
     ];
 
@@ -28,6 +33,10 @@ class ClosingKasir extends Model
             'total_pendapatan'  => 'decimal:2',
             'non_tunai'         => 'decimal:2',
             'total'             => 'decimal:2',
+            'modal_awal'        => 'decimal:2',
+            'uang_fisik'        => 'decimal:2',
+            'setoran'           => 'decimal:2',
+            'selisih'           => 'decimal:2',
         ];
     }
 
@@ -41,26 +50,27 @@ class ClosingKasir extends Model
      */
     public static function hitungDariTransaksi(string $tanggal, string $shift): array
     {
-        $query = Transaksi::whereDate('tanggal', $tanggal);
+        $query = Transaksi::whereDate('transaksis.tanggal', $tanggal);
 
         // Shift pagi: 07:00 - 13:59, Shift siang: 14:00 - 21:00
         if ($shift === 'pagi') {
-            $query->whereTime('created_at', '>=', '07:00:00')
-                  ->whereTime('created_at', '<', '14:00:00');
+            $query->whereTime('transaksis.created_at', '>=', '07:00:00')
+                  ->whereTime('transaksis.created_at', '<', '14:00:00');
         } else {
-            $query->whereTime('created_at', '>=', '14:00:00')
-                  ->whereTime('created_at', '<=', '21:00:00');
+            $query->whereTime('transaksis.created_at', '>=', '14:00:00')
+                  ->whereTime('transaksis.created_at', '<=', '21:00:00');
         }
 
         // Single aggregate query — no PHP-level filtering
-        $result = $query->selectRaw('
-            SUM(CASE WHEN tipe_harga = "resep" THEN 1 ELSE 0 END) as jumlah_resep,
-            SUM(CASE WHEN tipe_harga = "umum" THEN 1 ELSE 0 END) as jumlah_hv,
-            SUM(CASE WHEN tipe_harga = "resep" THEN grand_total ELSE 0 END) as pendapatan_resep,
-            SUM(CASE WHEN tipe_harga = "umum" THEN grand_total ELSE 0 END) as pendapatan_hv,
-            SUM(grand_total) as total_pendapatan,
-            SUM(CASE WHEN metode_bayar = "non-cash" THEN grand_total ELSE 0 END) as non_tunai
-        ')->first();
+        $result = $query->leftJoin('transaksi_details', 'transaksis.id', '=', 'transaksi_details.transaksi_id')
+            ->selectRaw('
+                COUNT(DISTINCT CASE WHEN transaksis.has_resep = 1 THEN transaksis.id END) as jumlah_resep,
+                COUNT(DISTINCT CASE WHEN transaksis.has_resep = 0 THEN transaksis.id END) as jumlah_hv,
+                SUM(CASE WHEN transaksi_details.is_resep_item = 1 THEN transaksi_details.subtotal ELSE 0 END) as pendapatan_resep,
+                SUM(CASE WHEN transaksi_details.is_resep_item = 0 THEN transaksi_details.subtotal ELSE 0 END) as pendapatan_hv,
+                SUM(transaksi_details.subtotal) as total_pendapatan,
+                SUM(CASE WHEN transaksis.metode_bayar = "non-cash" THEN transaksi_details.subtotal ELSE 0 END) as non_tunai
+            ')->first();
 
         $totalPendapatan = $result->total_pendapatan ?? 0;
         $nonTunai = $result->non_tunai ?? 0;

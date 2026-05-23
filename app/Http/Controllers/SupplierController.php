@@ -12,7 +12,8 @@ class SupplierController extends Controller
         $query = Supplier::withCount('barangs');
 
         if ($request->filled('search')) {
-            $query->where('nama', 'like', "%{$request->search}%");
+            $search = str_replace(['%', '_'], ['\%', '\_'], $request->search);
+            $query->where('nama', 'like', "%{$search}%");
         }
 
         $suppliers = $query->orderBy('nama')->paginate(20)->withQueryString();

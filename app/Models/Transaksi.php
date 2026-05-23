@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedString;
 use Illuminate\Database\Eloquent\Model;
 
 class Transaksi extends Model
@@ -14,6 +15,8 @@ class Transaksi extends Model
         'pasien_telp',
         'pasien_alamat',
         'tipe_harga',
+        'has_resep',
+        'has_minus_stok',
         'total',
         'diskon',
         'grand_total',
@@ -26,12 +29,16 @@ class Transaksi extends Model
     protected function casts(): array
     {
         return [
-            'tanggal'     => 'date',
-            'total'       => 'decimal:2',
-            'diskon'      => 'decimal:2',
-            'grand_total' => 'decimal:2',
-            'bayar'       => 'decimal:2',
-            'kembalian'   => 'decimal:2',
+            'tanggal'        => 'date',
+            'has_resep'      => 'boolean',
+            'has_minus_stok' => 'boolean',
+            'total'          => 'decimal:2',
+            'diskon'         => 'decimal:2',
+            'grand_total'    => 'decimal:2',
+            'bayar'          => 'decimal:2',
+            'kembalian'      => 'decimal:2',
+            'pasien_telp'    => EncryptedString::class,
+            'pasien_alamat'  => EncryptedString::class,
         ];
     }
 
@@ -46,12 +53,13 @@ class Transaksi extends Model
     }
 
     /**
-     * Generate nomor nota otomatis
+     * Generate nomor nota otomatis (harus dipanggil dalam DB::transaction)
      */
     public static function generateNoNota(): string
     {
         $prefix = 'INV-' . date('Ymd');
         $last = static::where('no_nota', 'like', $prefix . '%')
+            ->lockForUpdate()
             ->orderBy('no_nota', 'desc')
             ->first();
 

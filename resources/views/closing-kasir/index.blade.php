@@ -57,11 +57,11 @@
                     <th>Tanggal</th>
                     <th>R/</th>
                     <th>HV</th>
-                    <th>Pendapatan R/</th>
-                    <th>Pendapatan HV</th>
                     <th>Total Pendapatan</th>
                     <th>Non Tunai</th>
-                    <th>Total</th>
+                    <th>Tunai</th>
+                    <th>Uang Fisik</th>
+                    <th>Selisih</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
@@ -76,11 +76,27 @@
                     <td style="font-size:13px;">{{ $c->tanggal->format('d-m-Y') }}</td>
                     <td style="font-weight:700;">{{ $c->jumlah_resep }}</td>
                     <td style="font-weight:700;">{{ $c->jumlah_hv }}</td>
-                    <td>{{ number_format($c->pendapatan_resep, 0, ',', '.') }}</td>
-                    <td>{{ number_format($c->pendapatan_hv, 0, ',', '.') }}</td>
                     <td style="font-weight:700;">{{ number_format($c->total_pendapatan, 0, ',', '.') }}</td>
                     <td>{{ number_format($c->non_tunai, 0, ',', '.') }}</td>
                     <td style="font-weight:800;">{{ number_format($c->total, 0, ',', '.') }}</td>
+                    <td>
+                        @if($c->uang_fisik !== null)
+                            {{ number_format($c->uang_fisik, 0, ',', '.') }}
+                        @else
+                            <span style="color:var(--muted);">-</span>
+                        @endif
+                    </td>
+                    <td>
+                        @if($c->selisih !== null)
+                            <span style="font-weight:700; color:{{ $c->selisih < 0 ? '#dc3545' : ($c->selisih > 0 ? '#28a745' : 'inherit') }};"
+                                  @if($c->keterangan) title="{{ $c->keterangan }}" @endif>
+                                {{ $c->selisih >= 0 ? '+' : '' }}{{ number_format($c->selisih, 0, ',', '.') }}
+                                @if($c->selisih != 0) ⚠️ @endif
+                            </span>
+                        @else
+                            <span style="color:var(--muted);">-</span>
+                        @endif
+                    </td>
                     <td>
                         <form method="POST" action="{{ route('closing-kasir.destroy', $c) }}" style="display:inline;"
                               onsubmit="return confirm('Hapus closing ini?')">
@@ -103,11 +119,11 @@
                     <td colspan="2" style="text-align:right; font-weight:800; background:var(--bg);">TOTAL</td>
                     <td style="font-weight:800; background:var(--bg);">{{ $totals['jumlah_resep'] }}</td>
                     <td style="font-weight:800; background:var(--bg);">{{ $totals['jumlah_hv'] }}</td>
-                    <td style="font-weight:800; background:var(--bg);">{{ number_format($totals['pendapatan_resep'], 0, ',', '.') }}</td>
-                    <td style="font-weight:800; background:var(--bg);">{{ number_format($totals['pendapatan_hv'], 0, ',', '.') }}</td>
                     <td style="font-weight:800; background:var(--bg);">{{ number_format($totals['total_pendapatan'], 0, ',', '.') }}</td>
                     <td style="font-weight:800; background:var(--bg);">{{ number_format($totals['non_tunai'], 0, ',', '.') }}</td>
                     <td style="font-weight:800; background:var(--bg);">{{ number_format($totals['total'], 0, ',', '.') }}</td>
+                    <td style="background:var(--bg);"></td>
+                    <td style="background:var(--bg);"></td>
                     <td style="background:var(--bg);"></td>
                 </tr>
             </tfoot>

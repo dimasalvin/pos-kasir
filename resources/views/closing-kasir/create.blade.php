@@ -69,7 +69,47 @@
                 @csrf
                 <input type="hidden" name="tanggal" id="formTanggal">
                 <input type="hidden" name="shift" id="formShift">
-                <button type="submit" class="btn btn-primary" onclick="return confirm('Simpan closing ini?')">
+
+                {{-- Akuntabilitas Kas --}}
+                <div style="background:var(--bg-secondary, #f8f9fa); border-radius:10px; padding:16px; margin-bottom:16px;">
+                    <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:700;">💰 Hitung Kas Fisik</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Kas Awal (uang di laci saat mulai shift)</label>
+                            <input type="text" name="modal_awal" id="inputModalAwal" class="form-control rupiah-input" placeholder="Rp 0" value="0">
+                            <small style="color:var(--text-muted);">Uang yang sudah ada di laci sebelum shift dimulai</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Setoran ke Pemilik (jika ada)</label>
+                            <input type="text" name="setoran" id="inputSetoran" class="form-control rupiah-input" placeholder="Rp 0" value="0" oninput="hitungSelisih()">
+                            <small style="color:var(--text-muted);">Uang yang diambil pemilik selama shift ini</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Uang Fisik di Laci Sekarang *</label>
+                            <input type="text" name="uang_fisik" id="inputUangFisik" class="form-control rupiah-input" placeholder="Hitung uang di laci" oninput="hitungSelisih()">
+                            <small style="color:var(--text-muted);">Hitung semua uang tunai di laci saat ini</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Seharusnya</label>
+                            <input type="text" id="displaySeharusnya" class="form-control" disabled value="Rp 0">
+                            <small style="color:var(--text-muted);">Kas Awal + Tunai Masuk - Setoran</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight:700;">Selisih</label>
+                            <input type="text" id="displaySelisih" class="form-control" disabled value="Rp 0" style="font-weight:700; font-size:16px;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Keterangan (wajib jika ada selisih)</label>
+                        <input type="text" name="keterangan" id="inputKeterangan" class="form-control" placeholder="Jelaskan jika ada selisih...">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" onclick="return confirmClosing()">
                     💾 Simpan Closing
                 </button>
             </form>
@@ -80,6 +120,8 @@
 
 @push('scripts')
 <script>
+let previewTotal = 0; // Total tunai dari preview
+
 function previewClosing() {
     const tanggal = document.getElementById('tanggalInput').value;
     const shift = document.getElementById('shiftInput').value;
@@ -122,6 +164,10 @@ function previewClosing() {
         document.getElementById('pNonTunai').textContent = formatRp(d.non_tunai);
         document.getElementById('pTotal').textContent = formatRp(d.total);
 
+        // Simpan total tunai untuk hitung selisih
+        previewTotal = parseFloat(d.total) || 0;
+        hitungSelisih();
+
         document.getElementById('formTanggal').value = tanggal;
         document.getElementById('formShift').value = shift;
 
@@ -138,8 +184,76 @@ function previewClosing() {
     });
 }
 
+function hitungSelisih() {
+    const modalAwal = parseRupiah(document.getElementById('inputModalAwal').value);
+    const setoran = parseRupiah(document.getElementById('inputSetoran').value);
+    const uangFisik = parseRupiah(document.getElementById('inputUangFisik').value);
+
+    // Seharusnya = Kas Awal + Pendapatan Tunai - Setoran
+    const seharusnya = modalAwal + previewTotal - setoran;
+
+    document.getElementById('displaySeharusnya').value = 'Rp ' + formatRp(seharusnya);
+
+    if (uangFisik > 0 || document.getElementById('inputUangFisik').value.trim() !== '') {
+        const selisih = uangFisik - seharusnya;
+        const el = document.getElementById('displaySelisih');
+        if (selisih === 0) {
+            el.value = 'Rp 0 ✓ Cocok';
+            el.style.color = '#28a745';
+        } else {
+            el.value = (selisih > 0 ? '+' : '-') + ' Rp ' + formatRp(Math.abs(selisih));
+            el.style.color = selisih < 0 ? '#dc3545' : '#28a745';
+        }
+    } else {
+        document.getElementById('displaySelisih').value = '-';
+        document.getElementById('displaySelisih').style.color = 'inherit';
+    }
+}
+
+function confirmClosing() {
+    const uangFisik = parseRupiah(document.getElementById('inputUangFisik').value);
+    const modalAwal = parseRupiah(document.getElementById('inputModalAwal').value);
+    const seharusnya = previewTotal + modalAwal;
+    const selisih = uangFisik - seharusnya;
+    const keterangan = document.getElementById('inputKeterangan').value.trim();
+
+    if (uangFisik === 0 && document.getElementById('inputUangFisik').value.trim() === '') {
+        return confirm('Uang fisik belum diisi. Simpan tanpa verifikasi kas?');
+    }
+
+    if (selisih !== 0 && !keterangan) {
+        alert('⚠️ Ada selisih kas! Wajib isi keterangan sebelum menyimpan.');
+        document.getElementById('inputKeterangan').focus();
+        return false;
+    }
+
+    if (selisih < 0) {
+        return confirm('⚠️ PERHATIAN: Kas KURANG Rp ' + formatRp(Math.abs(selisih)) + '!\n\nKeterangan: ' + keterangan + '\n\nSimpan closing ini?');
+    }
+
+    return confirm('Simpan closing ini?');
+}
+
+function parseRupiah(str) {
+    if (!str) return 0;
+    return parseInt(str.replace(/[^\d]/g, '')) || 0;
+}
+
 function formatRp(num) {
     return Math.round(num).toLocaleString('id-ID');
 }
+
+// Auto-format rupiah inputs
+document.querySelectorAll('.rupiah-input').forEach(input => {
+    input.addEventListener('input', function() {
+        let val = this.value.replace(/[^\d]/g, '');
+        if (val) {
+            this.value = 'Rp ' + parseInt(val).toLocaleString('id-ID');
+        } else {
+            this.value = '';
+        }
+        hitungSelisih();
+    });
+});
 </script>
 @endpush

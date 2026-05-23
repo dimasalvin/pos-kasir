@@ -173,11 +173,16 @@
                     <td style="font-size:13px; color:var(--muted);">{{ $t->tanggal->format('d/m/Y') }} <span style="font-size:11px;">{{ $t->created_at->format('H:i') }}</span></td>
                     <td>
                         {{ $t->pelanggan ?? '-' }}
-                        @if($t->tipe_harga === 'resep' && $t->pasien_nama)
+                        @if($t->has_resep && $t->pasien_nama)
                             <div style="font-size:11px; color:var(--muted);">Pasien: {{ $t->pasien_nama }}</div>
                         @endif
                     </td>
-                    <td><span class="badge {{ $t->tipe_harga === 'resep' ? 'badge-purple' : 'badge-teal' }}">{{ $t->tipe_harga }}</span></td>
+                    <td>
+                        <span class="badge {{ $t->has_resep ? 'badge-purple' : 'badge-teal' }}">{{ $t->has_resep ? 'Resep' : 'Reguler' }}</span>
+                        @if($t->has_minus_stok)
+                            <span class="badge badge-danger" title="Transaksi ini mengakibatkan stok minus" style="background:#F0AD4E; color:#fff; font-size:9px;">⚠️ MINUS</span>
+                        @endif
+                    </td>
                     <td style="font-weight:700;">Rp {{ number_format($t->grand_total, 0, ',', '.') }}</td>
                     <td><span class="badge {{ $t->metode_bayar === 'cash' ? 'badge-teal' : 'badge-sky' }}">{{ $t->metode_bayar }}</span></td>
                     <td style="font-size:13px;">{{ $t->user->name }}</td>

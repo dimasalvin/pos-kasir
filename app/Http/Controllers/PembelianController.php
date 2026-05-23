@@ -8,6 +8,7 @@ use App\Models\PembelianDetail;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PembelianController extends Controller
 {
@@ -16,7 +17,8 @@ class PembelianController extends Controller
         $query = Pembelian::with(['supplier', 'user']);
 
         if ($request->filled('search')) {
-            $query->where('no_faktur', 'like', "%{$request->search}%");
+            $search = str_replace(['%', '_'], ['\%', '\_'], $request->search);
+            $query->where('no_faktur', 'like', "%{$search}%");
         }
 
         if ($request->filled('supplier_id')) {
@@ -99,9 +101,9 @@ class PembelianController extends Controller
                 'user_id'     => auth()->id(),
             ]);
 
-            // Pre-fetch semua barang yang dibutuhkan (1 query)
+            // Pre-fetch semua barang yang dibutuhkan dengan pessimistic lock (1 query)
             $barangIds = collect($items)->pluck('barang_id');
-            $barangs = Barang::whereIn('id', $barangIds)->get()->keyBy('id');
+            $barangs = Barang::whereIn('id', $barangIds)->lockForUpdate()->get()->keyBy('id');
 
             foreach ($items as $item) {
                 PembelianDetail::create([
@@ -114,22 +116,32 @@ class PembelianController extends Controller
                     'subtotal'     => $item['subtotal'],
                 ]);
 
-                // Tambah stok & update harga beli (1 query per item, bukan 2)
+                // Tambah stok & update harga beli
                 $barang = $barangs[$item['barang_id']];
-                $barang->update([
-                    'stok'       => DB::raw("stok + {$item['qty']}"),
-                    'harga_beli' => $item['harga_beli'],
-                ]);
+                $barang->increment('stok', (int) $item['qty']);
+                $barang->update(['harga_beli' => $item['harga_beli']]);
             }
 
             DB::commit();
+
+            Log::info('Pembelian berhasil disimpan', [
+                'user_id'    => auth()->id(),
+                'no_faktur'  => $pembelian->no_faktur,
+                'supplier'   => $request->supplier_id,
+                'grand_total' => $total,
+            ]);
 
             return redirect()->route('pembelian.index')
                 ->with('success', 'Pembelian berhasil disimpan. Stok telah diperbarui.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
+            Log::error('Pembelian gagal disimpan', [
+                'user_id' => auth()->id(),
+                'error'   => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+            return back()->with('error', 'Terjadi kesalahan saat menyimpan pembelian. Silakan coba lagi.')
                 ->withInput();
         }
     }
@@ -158,12 +170,23 @@ class PembelianController extends Controller
 
             DB::commit();
 
+            Log::info('Pembelian dihapus', [
+                'user_id'    => auth()->id(),
+                'no_faktur'  => $pembelian->no_faktur,
+                'grand_total' => $pembelian->grand_total,
+            ]);
+
             return redirect()->route('pembelian.index')
                 ->with('success', 'Pembelian berhasil dihapus. Stok telah dikembalikan.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            Log::error('Pembelian gagal dihapus', [
+                'user_id'      => auth()->id(),
+                'pembelian_id' => $pembelian->id,
+                'error'        => $e->getMessage(),
+            ]);
+            return back()->with('error', 'Terjadi kesalahan saat menghapus pembelian. Silakan coba lagi.');
         }
     }
 }

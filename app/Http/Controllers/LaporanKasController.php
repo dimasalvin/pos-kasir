@@ -29,17 +29,9 @@ class LaporanKasController extends Controller
             ->first();
         $totalKredit = $totals->total_kredit;
         $totalDebit = $totals->total_debit;
-        $saldoAwal = SaldoKas::getSaldo();
 
-        // Saldo akhir = saldo awal + debit - kredit
-        $saldoAkhir = $saldoAwal + $totalDebit - $totalKredit;
-
-        $ringkasan = [
-            'saldo_awal'   => $saldoAwal,
-            'total_debit'  => $totalDebit,
-            'total_kredit' => $totalKredit,
-            'saldo_akhir'  => $saldoAkhir,
-        ];
+        // Hitung saldo awal periode secara dinamis dari saldo global
+        $ringkasan = $this->hitungSaldoPeriode($dari, $sampai, $totalDebit, $totalKredit);
 
         return view('laporan-kas.index', compact('entries', 'ringkasan', 'dari', 'sampai'));
     }
@@ -123,16 +115,43 @@ class LaporanKasController extends Controller
 
         $totalKredit = $entries->sum('kredit');
         $totalDebit = $entries->sum('debit');
-        $saldoAwal = SaldoKas::getSaldo();
-        $saldoAkhir = $saldoAwal + $totalDebit - $totalKredit;
 
-        $ringkasan = [
+        // Hitung saldo awal periode secara dinamis dari saldo global
+        $ringkasan = $this->hitungSaldoPeriode($dari, $sampai, $totalDebit, $totalKredit);
+
+        return view('laporan-kas.cetak', compact('entries', 'ringkasan', 'dari', 'sampai'));
+    }
+
+    /**
+     * Hitung saldo awal & akhir periode secara dinamis.
+     *
+     * Logika: Saldo global saat ini = saldo awal + semua mutasi historis.
+     * Untuk menghitung saldo akhir pada tanggal $sampai, kita kurangi
+     * mutasi yang terjadi SETELAH tanggal $sampai dari saldo global.
+     * Saldo awal periode = saldo akhir periode - debit periode + kredit periode.
+     */
+    private function hitungSaldoPeriode(string $dari, string $sampai, float $totalDebit, float $totalKredit): array
+    {
+        $saldoKasGlobal = SaldoKas::getSaldo();
+
+        // Hitung akumulasi mutasi setelah tanggal $sampai hingga sekarang
+        $mutasiSetelahPeriode = LaporanKas::where('tanggal', '>', $sampai)
+            ->selectRaw('COALESCE(SUM(debit), 0) as total_debit, COALESCE(SUM(kredit), 0) as total_kredit')
+            ->first();
+
+        // Saldo akhir periode = Saldo saat ini - debit masa depan + kredit masa depan
+        $saldoAkhir = $saldoKasGlobal
+            - $mutasiSetelahPeriode->total_debit
+            + $mutasiSetelahPeriode->total_kredit;
+
+        // Saldo awal periode = Saldo akhir periode - debit periode ini + kredit periode ini
+        $saldoAwal = $saldoAkhir - $totalDebit + $totalKredit;
+
+        return [
             'saldo_awal'   => $saldoAwal,
             'total_debit'  => $totalDebit,
             'total_kredit' => $totalKredit,
             'saldo_akhir'  => $saldoAkhir,
         ];
-
-        return view('laporan-kas.cetak', compact('entries', 'ringkasan', 'dari', 'sampai'));
     }
 }

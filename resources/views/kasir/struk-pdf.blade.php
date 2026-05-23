@@ -33,7 +33,7 @@
         @if($transaksi->pelanggan)
         <div><span>Pelanggan</span><span>{{ $transaksi->pelanggan }}</span></div>
         @endif
-        @if($transaksi->tipe_harga === 'resep' && $transaksi->pasien_nama)
+        @if($transaksi->has_resep && $transaksi->pasien_nama)
         <div><span>Pasien</span><span>{{ $transaksi->pasien_nama }}</span></div>
         <div><span>Telp</span><span>{{ $transaksi->pasien_telp }}</span></div>
         <div><span>Alamat</span><span>{{ $transaksi->pasien_alamat }}</span></div>
@@ -41,7 +41,25 @@
     </div>
 
     <div class="items">
-        @foreach($transaksi->details as $d)
+        @php
+            $resepItems = $transaksi->details->where('is_resep_item', true);
+            $regularItems = $transaksi->details->where('is_resep_item', false);
+            $resepTotal = $resepItems->sum('subtotal');
+        @endphp
+
+        {{-- Resep sebagai 1 baris --}}
+        @if($resepItems->count() > 0)
+        <div class="item">
+            <div class="name">Resep</div>
+            <div class="detail">
+                <span>1 x {{ number_format($resepTotal, 0, ',', '.') }}</span>
+                <span>{{ number_format($resepTotal, 0, ',', '.') }}</span>
+            </div>
+        </div>
+        @endif
+
+        {{-- Item non-resep --}}
+        @foreach($regularItems as $d)
         <div class="item">
             <div class="name">{{ $d->nama_barang }}</div>
             <div class="detail">

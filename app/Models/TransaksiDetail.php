@@ -14,14 +14,16 @@ class TransaksiDetail extends Model
         'harga',
         'diskon',
         'subtotal',
+        'is_resep_item',
     ];
 
     protected function casts(): array
     {
         return [
-            'harga'    => 'decimal:2',
-            'diskon'   => 'decimal:2',
-            'subtotal' => 'decimal:2',
+            'harga'         => 'decimal:2',
+            'diskon'        => 'decimal:2',
+            'subtotal'      => 'decimal:2',
+            'is_resep_item' => 'boolean',
         ];
     }
 
