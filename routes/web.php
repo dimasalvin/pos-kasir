@@ -11,6 +11,7 @@ use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\ClosingKasirController;
 use App\Http\Controllers\LaporanKasController;
+use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -84,5 +85,8 @@ Route::middleware('auth')->group(function () {
             Route::get('/stok', [LaporanController::class, 'stok'])->name('stok');
             Route::get('/pembelian', [LaporanController::class, 'pembelian'])->name('pembelian');
         });
+
+        // Manajemen User
+        Route::resource('user', UserController::class)->except(['show']);
     });
 });

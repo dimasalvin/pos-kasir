@@ -258,6 +258,11 @@
         <a href="{{ route('laporan-kas.index') }}" class="nav-item {{ request()->routeIs('laporan-kas.*') ? 'active' : '' }}">
             <span class="icon">💰</span> Laporan Kas
         </a>
+
+        <div class="nav-section-label">Pengaturan</div>
+        <a href="{{ route('user.index') }}" class="nav-item {{ request()->routeIs('user.*') ? 'active' : '' }}">
+            <span class="icon">👥</span> Manajemen User
+        </a>
         @endif
 
     </nav>
